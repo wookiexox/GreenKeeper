@@ -132,6 +132,27 @@
 
 </div>
 
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCtTi9B_JUl8hv7sYJUsoVH1u3Lw63gvGk",
+        authDomain: "greenkeeper-e380b.firebaseapp.com",
+        projectId: "greenkeeper-e380b",
+        storageBucket: "greenkeeper-e380b.firebasestorage.app",
+        messagingSenderId: "37026643235",
+        appId: "1:37026643235:web:12844073915f16a3042096",
+        measurementId: "G-97XLV0MS04"
+    };
+
+    const app = initializeApp(firebaseConfig);
+
+    window.firebaseAuth = getAuth(app);
+    window.firebaseDb = getFirestore(app);
+</script>
+
 <script>
     Vue.createApp({
         data() {
