@@ -134,7 +134,11 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        GoogleAuthProvider,
+        signInWithPopup,
+        sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -151,6 +155,13 @@
 
     window.firebaseAuth = getAuth(app);
     window.firebaseDb = getFirestore(app);
+    window.firebaseAuthMethods = {
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        GoogleAuthProvider,
+        signInWithPopup,
+        sendPasswordResetEmail
+    };
 </script>
 
 <script>
@@ -196,22 +207,55 @@
             }
         },
         methods: {
-            loginWithEmail() {
-                alert("Logowanie e-mailem\nEmail: " + this.email + "\nHasło: " + this.password);
+            async loginWithEmail() {
+                try {
+                    await window.firebaseAuthMethods.signInWithEmailAndPassword(window.firebaseAuth, this.email, this.password);
+                    alert("Zalogowano pomyślnie! Witaj " + this.email);
+                } catch (error) {
+                    alert("Błąd logowania: Nieprawidłowy e-mail lub hasło.");
+                    console.error(error);
+                }
             },
-            loginWithGoogle() {
-                alert("Kliknięto logowanie Google");
+            async loginWithGoogle() {
+                try {
+                    const provider = new window.firebaseAuthMethods.GoogleAuthProvider();
+                    const result = await window.firebaseAuthMethods.signInWithPopup(window.firebaseAuth, provider);
+                    alert("Zalogowano przez Google! Witaj " + result.user.email);
+                } catch (error) {
+                    alert("Logowanie Google przerwane lub wystąpił błąd.");
+                    console.error(error);
+                }
             },
-            resetPassword() {
-                alert("Link do resetu hasła został wysłany na podany adres e-mail.");
-                this.currentView = 'login';
+            async resetPassword() {
+                try {
+                    await window.firebaseAuthMethods.sendPasswordResetEmail(window.firebaseAuth, this.email);
+                    alert("Link do resetu hasła został wysłany na podany adres e-mail (jeśli istnieje w bazie).");
+                    this.currentView = 'login';
+                } catch (error) {
+                    alert("Błąd: Sprawdź, czy wpisałeś poprawny e-mail.");
+                    console.error(error);
+                }
             },
-            registerAccount() {
-                alert("Konto zostało pomyślnie utworzone\nEmail: " + this.registerEmail);
-                this.registerEmail = '';
-                this.registerPassword = '';
-                this.registerConfirmPassword = '';
-                this.currentView = 'login';
+            async registerAccount() {
+                if(this.isFormReadyToSubmit) {
+                    try {
+                        const userCredential = await window.firebaseAuthMethods.createUserWithEmailAndPassword(window.firebaseAuth, this.registerEmail, this.registerPassword);
+
+                        alert("Konto zostało pomyślnie utworzone!\nEmail: " + userCredential.user.email);
+                        
+                        this.registerEmail = '';
+                        this.registerPassword = '';
+                        this.registerConfirmPassword = '';
+                        this.currentView = 'login';
+                    } catch (error) {
+                        if(error.code === 'auth/email-already-in-use') {
+                            alert("Błąd: Ten adres e-mail jest już zajęty.");
+                        } else {
+                            alert("Wystąpił błąd podczas rejestracji: " + error.message);
+                        }
+                        console.error(error);
+                    }
+                }
             }
         }
     }).mount('#app')
