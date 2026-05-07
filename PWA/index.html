@@ -130,8 +130,28 @@
         </div>
     </div>
 
+    <!-- ekran nowego użytkownika -->
+    <div v-else-if="currentView === 'welcome'" class="w-100 d-flex flex-column align-items-center">
+        <div class="login-card w-100 d-flex flex-column align-items-center" style="max-width: 350px; padding: 40px 20px;">
+
+            <h2 class="fw-bold mb-4" style="font-size: 2.5rem;">Witaj!</h2>
+            <p class="text-center fw-bold mb-4" style="font-size: 1.1rem;">Jak masz na imię?</p>
+
+            <div class="mb-4 w-100">
+                <input type="text" class="form-control text-center" v-model="userName" placeholder="Twoje imię">
+            </div>
+
+            <button class="btn btn-dark w-100 py-2"
+                    @click="saveUserName"
+                    :disabled="userName.length < 2">
+                Potwierdź
+            </button>
+        </div>
+    </div>
+
 </div>
 
+<!-- firebase -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword,
@@ -164,6 +184,7 @@
     };
 </script>
 
+<!-- Vue -->
 <script>
     Vue.createApp({
         data() {
@@ -173,11 +194,14 @@
                 email: '',
                 password: '',
 
-                //rejestracja
+                // rejestracja
                 registerEmail: '',
                 registerPassword: '',
                 registerConfirmPassword: '',
-                isPasswordFocused: false
+                isPasswordFocused: false,
+
+                // ekran nowego użytkownika
+                userName: ''
             }
         },
         computed: {
@@ -242,7 +266,7 @@
                         const userCredential = await window.firebaseAuthMethods.createUserWithEmailAndPassword(window.firebaseAuth, this.registerEmail, this.registerPassword);
 
                         alert("Konto zostało pomyślnie utworzone!\nEmail: " + userCredential.user.email);
-                        
+
                         this.registerEmail = '';
                         this.registerPassword = '';
                         this.registerConfirmPassword = '';
@@ -256,6 +280,9 @@
                         console.error(error);
                     }
                 }
+            },
+            async saveUserName() {
+                alert("Zapisywanie imienia: " + this.userName);
             }
         }
     }).mount('#app')
