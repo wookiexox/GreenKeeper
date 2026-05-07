@@ -15,8 +15,8 @@
 </head>
 <body>
 <div id="app" class="container d-flex flex-column align-items-center">
-
-    <div v-if="currentView === 'reset'" class="w-100 mt-3" style="max-width: 400px;">
+    <!-- przycisk "cofnij" -->
+    <div v-if="currentView === 'reset' || currentView === 'register'" class="w-100 mt-3" style="max-width: 400px;">
         <button class="btn btn-light rounded-circle shadow-sm" style="width: 40px; height: 40px;" @click="currentView = 'login'">
             <i class="bi bi-arrow-left"></i>
         </button>
@@ -25,6 +25,7 @@
     <h1 class="app-title">GreenKeeper</h1>
     <p class="app-subtitle">Keep your plants alive</p>
 
+    <!-- ekran logowania -->
     <div v-if="currentView === 'login'" class="w-100 d-flex flex-column align-items-center">
         <div class="login-card w-100" style="max-width: 400px;">
             <div class="mb-3">
@@ -40,7 +41,7 @@
 
             <div class="d-flex justify-content-between small fw-bold">
                 <a href="#" class="text-dark text-decoration-none border-bottom border-dark" @click.prevent="currentView = 'reset'">Zapomniałeś hasła?</a>
-                <a href="#" class="text-dark text-decoration-none border-bottom border-dark">Zarejestruj się</a>
+                <a href="#" class="text-dark text-decoration-none border-bottom border-dark" @click.prevent="currentView = 'register'">Zarejestruj się</a>
             </div>
         </div>
 
@@ -64,6 +65,7 @@
         </div>
     </div>
 
+    <!-- ekran resetu hasła -->
     <div v-else-if="currentView === 'reset'" class="w-100 d-flex flex-column align-items-center">
         <div class="login-card w-100" style="max-width: 400px;">
             <p class="text-center fw-bold mb-4">Podaj adres e-mail, na który zarejestrowane jest Twoje konto.</p>
@@ -77,15 +79,99 @@
         </div>
     </div>
 
+    <!-- ekran rejestracji użytkownika -->
+    <div v-else-if="currentView === 'register'" class="w-100 d-flex flex-column align-items-center">
+        <div class="login-card w-100" style="max-width: 400px;">
+
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">Email</label>
+                <input type="email" class="form-control"
+                       :class="{'is-valid': isEmailValid, 'is-invalid': registerEmail.length > 0 && !isEmailValid}"
+                       v-model="registerEmail"
+                       placeholder="example@xyz.com">
+            </div>
+
+            <div class="mb-3 position-relative">
+                <label class="form-label text-muted small fw-bold">Hasło</label>
+                <input type="password" class="form-control"
+                       :class="{'is-valid': isPasswordValid, 'is-invalid': registerPassword.length > 0 && !isPasswordValid}"
+                       v-model="registerPassword"
+                       @focus="isPasswordFocused = true"
+                       @blur="isPasswordFocused = false"
+                       placeholder="co najmniej 8 znaków">
+
+                <div v-if="isPasswordFocused || (registerPassword.length > 0 && !isPasswordValid)"
+                     class="p-2 mt-1 rounded bg-light border shadow-sm" style="font-size: 0.8rem; z-index: 10;">
+                    <div class="fw-bold mb-1">Hasło musi zawierać (minimum):</div>
+                    <div :class="hasMinLength ? 'text-success' : 'text-danger'">
+                        <i :class="hasMinLength ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i> 8 znaków
+                    </div>
+                    <div :class="hasUpperCase ? 'text-success' : 'text-danger'">
+                        <i :class="hasUpperCase ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i> 1 wielką literę
+                    </div>
+                    <div :class="hasNumber ? 'text-success' : 'text-danger'">
+                        <i :class="hasNumber ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i> 1 cyfrę
+                    </div>
+                    <div :class="hasSpecialChar ? 'text-success' : 'text-danger'">
+                        <i :class="hasSpecialChar ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i> 1 znak specjalny (dozwolone !@#$%^&*)
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">Potwierdź hasło</label>
+                <input type="password" class="form-control"
+                       :class="{'is-valid': isPasswordMatching}"
+                       v-model="registerConfirmPassword"
+                       placeholder="hasła muszą się zgadzać">
+            </div>
+
+            <button class="btn btn-dark w-100" @click="registerAccount" :disabled="!isFormReadyToSubmit">Zarejestruj</button>
+        </div>
+    </div>
+
 </div>
 
 <script>
     Vue.createApp({
         data() {
             return {
+                // logowanie
                 currentView: 'login',
                 email: '',
-                password: ''
+                password: '',
+
+                //rejestracja
+                registerEmail: '',
+                registerPassword: '',
+                registerConfirmPassword: '',
+                isPasswordFocused: false
+            }
+        },
+        computed: {
+            isEmailValid() {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.registerEmail);
+            },
+            hasMinLength() {
+                return this.registerPassword.length >= 8;
+            },
+            hasUpperCase() {
+                return /[A-Z]/.test(this.registerPassword);
+            },
+            hasNumber() {
+                return /[0-9]/.test(this.registerPassword);
+            },
+            hasSpecialChar() {
+                return /[!@#$%^&*]/.test(this.registerPassword);
+            },
+            isPasswordValid() {
+              return this.hasMinLength && this.hasUpperCase && this.hasNumber && this.hasSpecialChar;
+          },
+            isPasswordMatching() {
+                return this.isPasswordValid && (this.registerPassword === this.registerConfirmPassword) && this.registerPassword !== '';
+            },
+            isFormReadyToSubmit() {
+                return this.isPasswordMatching && this.isEmailValid;
             }
         },
         methods: {
@@ -97,6 +183,13 @@
             },
             resetPassword() {
                 alert("Link do resetu hasła został wysłany na podany adres e-mail.");
+                this.currentView = 'login';
+            },
+            registerAccount() {
+                alert("Konto zostało pomyślnie utworzone\nEmail: " + this.registerEmail);
+                this.registerEmail = '';
+                this.registerPassword = '';
+                this.registerConfirmPassword = '';
                 this.currentView = 'login';
             }
         }
