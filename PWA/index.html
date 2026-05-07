@@ -149,6 +149,15 @@
         </div>
     </div>
 
+    <!-- ekran główny aplikacji -->
+    <div v-else-if="currentView === 'dashboard'" class="w-100 d-flex flex-column align-items-center">
+        <div class="login-card w-100 text-center" style="max-width: 400px; padding: 40px 20px;">
+            <h2 class="fw-bold text-success mb-3"><i class="bi bi-check-circle"></i> Zalogowano!</h2>
+
+            <button class="btn btn-outline-danger w-100 mt-4" @click="currentView = 'login'">Wyloguj się (testowo)</button>
+        </div>
+    </div>
+
 </div>
 
 <!-- firebase -->
@@ -159,7 +168,7 @@
         GoogleAuthProvider,
         signInWithPopup,
         sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCtTi9B_JUl8hv7sYJUsoVH1u3Lw63gvGk",
@@ -175,6 +184,7 @@
 
     window.firebaseAuth = getAuth(app);
     window.firebaseDb = getFirestore(app);
+
     window.firebaseAuthMethods = {
         createUserWithEmailAndPassword,
         signInWithEmailAndPassword,
@@ -182,6 +192,7 @@
         signInWithPopup,
         sendPasswordResetEmail
     };
+    window.firebaseDbMethods = { doc, getDoc, setDoc };
 </script>
 
 <!-- Vue -->
@@ -231,10 +242,26 @@
             }
         },
         methods: {
+            async checkUserProfile(user) {
+                try {
+                    const docRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", user.uid);
+                    const docSnap = await window.firebaseDbMethods.getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        this.currentView = 'dashboard';
+                    } else {
+                        this.currentView = 'welcome';
+                    }
+                } catch (error) {
+                    console.error("Błąd podczas sprawdzania profilu.");
+                }
+            },
             async loginWithEmail() {
                 try {
-                    await window.firebaseAuthMethods.signInWithEmailAndPassword(window.firebaseAuth, this.email, this.password);
-                    alert("Zalogowano pomyślnie! Witaj " + this.email);
+                    const userCredential = await window.firebaseAuthMethods.signInWithEmailAndPassword(window.firebaseAuth, this.email, this.password);
+                    await this.checkUserProfile(userCredential.user);
+                    this.email = '';
+                    this.password = '';
                 } catch (error) {
                     alert("Błąd logowania: Nieprawidłowy e-mail lub hasło.");
                     console.error(error);
@@ -244,7 +271,7 @@
                 try {
                     const provider = new window.firebaseAuthMethods.GoogleAuthProvider();
                     const result = await window.firebaseAuthMethods.signInWithPopup(window.firebaseAuth, provider);
-                    alert("Zalogowano przez Google! Witaj " + result.user.email);
+                    await this.checkUserProfile(result.user);
                 } catch (error) {
                     alert("Logowanie Google przerwane lub wystąpił błąd.");
                     console.error(error);
@@ -263,26 +290,41 @@
             async registerAccount() {
                 if(this.isFormReadyToSubmit) {
                     try {
-                        const userCredential = await window.firebaseAuthMethods.createUserWithEmailAndPassword(window.firebaseAuth, this.registerEmail, this.registerPassword);
-
-                        alert("Konto zostało pomyślnie utworzone!\nEmail: " + userCredential.user.email);
-
+                        await window.firebaseAuthMethods.createUserWithEmailAndPassword(window.firebaseAuth, this.registerEmail, this.registerPassword);
                         this.registerEmail = '';
                         this.registerPassword = '';
                         this.registerConfirmPassword = '';
-                        this.currentView = 'login';
+
+                        this.currentView = 'welcome';
                     } catch (error) {
                         if(error.code === 'auth/email-already-in-use') {
                             alert("Błąd: Ten adres e-mail jest już zajęty.");
                         } else {
-                            alert("Wystąpił błąd podczas rejestracji: " + error.message);
+                            alert("Wystąpił błąd podczas rejestracji.");
                         }
                         console.error(error);
                     }
                 }
             },
             async saveUserName() {
-                alert("Zapisywanie imienia: " + this.userName);
+                try {
+                    const user = window.firebaseAuth.currentUser;
+
+                    if(user) {
+                        const docRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", user.uid);
+                        await window.firebaseDbMethods.setDoc(docRef, {
+                            name: this.userName,
+                            email: user.email,
+                            createdAt: new Date()
+                        });
+
+                        this.userName = '';
+                        this.currentView = 'dashboard';
+                    }
+                } catch (error) {
+                    alert("Wystąpił błąd podczas zapisywania profilu.");
+                    console.error(error);
+                }
             }
         }
     }).mount('#app')
