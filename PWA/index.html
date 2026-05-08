@@ -150,11 +150,47 @@
     </div>
 
     <!-- ekran główny aplikacji -->
-    <div v-else-if="currentView === 'dashboard'" class="w-100 d-flex flex-column align-items-center">
-        <div class="login-card w-100 text-center" style="max-width: 400px; padding: 40px 20px;">
-            <h2 class="fw-bold text-success mb-3"><i class="bi bi-check-circle"></i> Zalogowano!</h2>
+    <div v-else-if="currentView === 'dashboard'" class="dashboard-wrapper">
+        <div class="text-center mt-5" style="margin-bottom: 60px">
+            <div style="font-size: 1.8rem; color: black;">Cześć,</div>
+            <div style="font-size: 3.0rem; font-weight: 600; color: black; line-height: 0.75;">{{ activeUserName }}</div>
+        </div>
 
-            <button class="btn btn-outline-danger w-100 mt-4" @click="currentView = 'login'">Wyloguj się (testowo)</button>
+        <div class="dashboard-container shadow-lg">
+            <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
+
+            <div v-if="housePlants.length === 0" class="empty-state border-bottom mb-4">
+                Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
+            </div>
+
+            <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
+                <div class="plant-card" v-for="(plant, index) in housePlants" :key="'house-'+index">
+                    <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
+                    <p class="plant-title">{{ plant.name }}</p>
+                    <p class="plant-subtitle">{{ plant.subtitle }}</p>
+                </div>
+            </div>
+
+            <h5 class="fw-bold mb-3 mt-5 border-bottom pb-2">Twoje dzikie rośliny</h5>
+
+            <div v-if="wildPlants.length === 0" class="empty-state">
+                Trochę tu pusto...
+            </div>
+
+            <div v-else class="horizontal-scroll pb-2">
+                <div class="plant-card" v-for="(plant, index) in wildPlants" :key="'wild-'+index">
+                    <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
+                    <p class="plant-title">{{ plant.name }}</p>
+                    <p class="plant-subtitle">{{ plant.location }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <i class="bi bi-house-door" :class="{'active-tab': currentTab === 'home'}" @click="currentTab = 'home'"></i>
+            <i class="bi bi-plus-circle" :class="{'active-tab': currentTab === 'add'}" @click="currentTab = 'add'"></i>
+            <i class="bi bi-geo-alt" :class="{'active-tab': currentTab === 'map'}" @click="currentTab = 'map'"></i>
+            <i class="bi bi-person" :class="{'active-tab': currentTab === 'profile'}" @click="currentTab = 'profile'"></i>
         </div>
     </div>
 
@@ -212,7 +248,13 @@
                 isPasswordFocused: false,
 
                 // ekran nowego użytkownika
-                userName: ''
+                userName: '',
+                activeUserName: '',
+                currentTab: 'home',
+                housePlants: [
+                ],
+                wildPlants: [
+                ]
             }
         },
         computed: {
@@ -248,6 +290,7 @@
                     const docSnap = await window.firebaseDbMethods.getDoc(docRef);
 
                     if (docSnap.exists()) {
+                        this.activeUserName = docSnap.data().name;
                         this.currentView = 'dashboard';
                     } else {
                         this.currentView = 'welcome';
@@ -318,6 +361,7 @@
                             createdAt: new Date()
                         });
 
+                        this.activeUserName = this.userName;
                         this.userName = '';
                         this.currentView = 'dashboard';
                     }
