@@ -233,3 +233,40 @@ body {
     padding: 30px 10px;
     width: 100%;
 }
+
+/* przycisk "wstecz" */
+.btn-back {
+    width: 40px;
+    height: 40px;
+    background-color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+    z-index: 1000;
+}
+
+.btn-back:active {
+    transform: scale(0.9);
+}
+
+/* ekran dodawania nowej rośliny */
+.btn-type-select {
+    background-color: white;
+    color: black;
+    border: 1px solid #ced4da;
+    border-radius: 12px;
+    padding: 20px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.btn-type-select:disabled {
+    background-color: #e9ecef;
+    color: #adb5bd;
+    border-color: #dee2e6;
+    cursor: not-allowed;
+}

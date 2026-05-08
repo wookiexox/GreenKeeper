@@ -15,15 +15,17 @@
 </head>
 <body>
 <div id="app" class="container d-flex flex-column align-items-center">
-    <!-- przycisk "cofnij" -->
-    <div v-if="currentView === 'reset' || currentView === 'register'" class="w-100 mt-3" style="max-width: 400px;">
-        <button class="btn btn-light rounded-circle shadow-sm" style="width: 40px; height: 40px;" @click="currentView = 'login'">
-            <i class="bi bi-arrow-left"></i>
-        </button>
-    </div>
+    <!-- przycisk "cofnij i szyld apki" -->
+    <template v-if="currentView !== 'dashboard'">
+        <div v-if="currentView === 'reset' || currentView === 'register'" class="w-100 mt-3" style="max-width: 400px;">
+            <button class="btn-back" @click="goBack">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+        </div>
 
-    <h1 class="app-title">GreenKeeper</h1>
-    <p class="app-subtitle">Keep your plants alive</p>
+        <h1 class="app-title">GreenKeeper</h1>
+        <p class="app-subtitle">Keep your plants alive</p>
+    </template>
 
     <!-- ekran logowania -->
     <div v-if="currentView === 'login'" class="w-100 d-flex flex-column align-items-center">
@@ -151,39 +153,77 @@
 
     <!-- ekran główny aplikacji -->
     <div v-else-if="currentView === 'dashboard'" class="dashboard-wrapper">
-        <div class="text-center mt-5" style="margin-bottom: 60px">
+        <div class="w-100 position-relative text-center mt-5" style="margin-bottom: 60px">
+
+            <button v-if="currentTab !== 'home'"
+                    class="btn-back position-absolute"
+                    style="left: 20px; top: 0; z-index: 100;"
+                    @click="goBack">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+
             <div style="font-size: 1.8rem; color: black;">Cześć,</div>
             <div style="font-size: 3.0rem; font-weight: 600; color: black; line-height: 0.75;">{{ activeUserName }}</div>
         </div>
 
         <div class="dashboard-container shadow-lg">
-            <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
 
-            <div v-if="housePlants.length === 0" class="empty-state border-bottom mb-4">
-                Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
-            </div>
+            <div v-if="currentTab === 'home'">
+                <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
 
-            <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
-                <div class="plant-card" v-for="(plant, index) in housePlants" :key="'house-'+index">
-                    <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
-                    <p class="plant-title">{{ plant.name }}</p>
-                    <p class="plant-subtitle">{{ plant.subtitle }}</p>
+                <div v-if="housePlants.length === 0" class="empty-state border-bottom mb-4">
+                    Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
+                </div>
+
+                <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
+                    <div class="plant-card" v-for="(plant, index) in housePlants" :key="'house-'+index">
+                        <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
+                        <p class="plant-title">{{ plant.name }}</p>
+                        <p class="plant-subtitle">{{ plant.subtitle }}</p>
+                    </div>
+                </div>
+
+                <h5 class="fw-bold mb-3 mt-5 border-bottom pb-2">Twoje dzikie rośliny</h5>
+
+                <div v-if="wildPlants.length === 0" class="empty-state">
+                    Trochę tu pusto...
+                </div>
+
+                <div v-else class="horizontal-scroll pb-2">
+                    <div class="plant-card" v-for="(plant, index) in wildPlants" :key="'wild-'+index">
+                        <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
+                        <p class="plant-title">{{ plant.name }}</p>
+                        <p class="plant-subtitle">{{ plant.location }}</p>
+                    </div>
                 </div>
             </div>
 
-            <h5 class="fw-bold mb-3 mt-5 border-bottom pb-2">Twoje dzikie rośliny</h5>
+            <div v-else-if="currentTab === 'add'" class="d-flex flex-column">
+                <h6 class="fw-bold mb-3">Wybierz imię dla nowej rośliny:</h6>
+                <input type="text" class="form-control mb-4 py-2" v-model="newPlantName">
 
-            <div v-if="wildPlants.length === 0" class="empty-state">
-                Trochę tu pusto...
-            </div>
+                <hr class="mb-4">
 
-            <div v-else class="horizontal-scroll pb-2">
-                <div class="plant-card" v-for="(plant, index) in wildPlants" :key="'wild-'+index">
-                    <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
-                    <p class="plant-title">{{ plant.name }}</p>
-                    <p class="plant-subtitle">{{ plant.location }}</p>
+                <h6 class="fw-bold mb-3">Wybierz typ rośliny:</h6>
+                <div class="d-flex gap-3">
+                    <button class="btn-type-select flex-grow-1"
+                            :disabled="!isPlantNameValid"
+                            @click="selectPlantType('domowa')">
+                        Domowa
+                    </button>
+                    <button class="btn-type-select flex-grow-1"
+                            :disabled="!isPlantNameValid"
+                            @click="selectPlantType('dzika')">
+                        Dzika
+                    </button>
                 </div>
             </div>
+
+            <div v-else-if="currentTab === 'map'" class="text-center mt-5">
+            </div>
+            <div v-else-if="currentTab === 'profile'" class="text-center mt-5">
+            </div>
+
         </div>
 
         <div class="bottom-nav">
@@ -251,6 +291,11 @@
                 userName: '',
                 activeUserName: '',
                 currentTab: 'home',
+
+                // ekran dodania nowej rośliny
+                newPlantName: '',
+
+                // dodane rośliny
                 housePlants: [
                 ],
                 wildPlants: [
@@ -281,9 +326,21 @@
             },
             isFormReadyToSubmit() {
                 return this.isPasswordMatching && this.isEmailValid;
+            },
+            isPlantNameValid() {
+                return this.newPlantName.trim().length > 0;
             }
         },
         methods: {
+            goBack() {
+                if (this.currentView === 'register' || this.currentView === 'reset') {
+                    this.currentView = 'login';
+                }
+                else if (this.currentView === 'dashboard' && this.currentTab !== 'home') {
+                    this.newPlantName = '';
+                    this.currentTab = 'home';
+                }
+            },
             async checkUserProfile(user) {
                 try {
                     const docRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", user.uid);
@@ -369,6 +426,10 @@
                     alert("Wystąpił błąd podczas zapisywania profilu.");
                     console.error(error);
                 }
+            },
+
+            selectPlantType(type) {
+                console.log("Typ " + type + " dla rośliny " + this.newPlantName);
             }
         }
     }).mount('#app')
