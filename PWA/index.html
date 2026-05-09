@@ -174,7 +174,7 @@
                     Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
                 </div>
                 <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
-                    <div class="plant-card" v-for="(plant, index) in housePlants" :key="'house-'+index">
+                    <div class="plant-card" style="cursor: pointer;" v-for="(plant, index) in housePlants" :key="'house-'+index" @click="openPlantDetails(plant)">
                         <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
                         <p class="plant-title">{{ plant.name }}</p>
                         <p class="plant-subtitle">{{ plant.subtitle }}</p>
@@ -258,11 +258,89 @@
                 </button>
             </div>
 
+            <div v-else-if="currentTab === 'plant-details' && selectedPlant" class="d-flex flex-column h-100 position-relative">
+
+                <i class="bi bi-trash text-danger position-absolute" style="top: 0; right: 0; font-size: 1.3rem; cursor: pointer; z-index: 10;" @click="deletePlant"></i>
+
+                <div class="d-flex align-items-center mb-4 border-bottom pb-4">
+                    <img :src="selectedPlant.imageUrl" class="rounded shadow-sm me-3" style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" @click="imageOptionsModal = true">
+                    <div>
+                        <div class="small text-muted fw-bold">Typ: <span class="text-dark">Domowa</span></div>
+                        <div class="small text-muted fw-bold">Nazwa: <span class="text-dark">{{ selectedPlant.name }}</span></div>
+                        <div class="small text-muted fw-bold">Data dodania: <span class="text-dark">{{ selectedPlant.createdAtStr }}</span></div>
+                    </div>
+                </div>
+
+                <div class="mb-3 border-bottom pb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-droplet me-2 fs-5 text-muted"></i>
+                        <span class="small text-muted fw-bold">Podlewanie | Ostatnie podlanie</span>
+                    </div>
+                    <div class="fw-bold ms-4 ps-1">
+                        Co {{ selectedPlant.wateringFrequency }} dni | {{ formatDatePl(selectedPlant.lastWateringDate) }}
+                    </div>
+                </div>
+
+                <div class="mb-3 border-bottom pb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-flower1 me-2 fs-5 text-muted"></i>
+                        <span class="small text-muted fw-bold">Ostatnie przesadzenie</span>
+                    </div>
+                    <div class="fw-bold ms-4 ps-1">{{ formatDatePl(selectedPlant.repottingDate) }}</div>
+                </div>
+
+                <div class="mb-4 border-bottom pb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-chat-square-quote me-2 fs-5 text-muted"></i>
+                        <span class="small text-muted fw-bold">Przydatne informacje</span>
+                    </div>
+                    <div v-if="selectedPlant.usefulInfo" class="fw-bold ms-4 ps-1 small mb-2">{{ selectedPlant.usefulInfo }}</div>
+                    <div class="ms-4 ps-1">
+                        <a href="#" class="text-primary small fw-bold text-decoration-none" @click.prevent="openEditInfoModal">
+                            {{ selectedPlant.usefulInfo ? 'Edytuj' : 'Dodaj informacje' }}
+                        </a>
+                    </div>
+                </div>
+
+                <button class="btn btn-dark w-100 py-3 mt-auto mb-4" @click="waterPlant">
+                    Podlano roślinę
+                </button>
+            </div>
+
+            <template v-if="currentTab === 'plant-details'">
+                <div v-if="editInfoModal" class="custom-modal-overlay" @click.self="editInfoModal = false">
+                    <div class="custom-modal">
+                        <h6 class="fw-bold mb-3">Przydatne informacje</h6>
+                        <textarea class="form-control mb-3 shadow-sm" rows="5" v-model="tempUsefulInfo" placeholder="Nawóź co drugie podlewanie..."></textarea>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-light border fw-bold" @click="editInfoModal = false">Anuluj</button>
+                            <button class="btn btn-dark fw-bold px-4" @click="saveUsefulInfo">OK</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="imageOptionsModal" class="custom-modal-overlay" @click.self="imageOptionsModal = false">
+                    <div class="action-sheet" @click.stop>
+                        <button class="btn w-100 py-3 fw-bold border-bottom" @click="showFullscreenImage = true; imageOptionsModal = false">Pokaż zdjęcie</button>
+                        <button class="btn w-100 py-3 fw-bold border-bottom" @click="triggerChangeImage">Zmień zdjęcie</button>
+                        <button class="btn w-100 py-3 fw-bold text-danger" @click="imageOptionsModal = false">Anuluj</button>
+                    </div>
+                </div>
+
+                <div v-if="showFullscreenImage" class="fullscreen-image-container">
+                    <div class="p-3 text-end">
+                        <i class="bi bi-x-lg text-white fs-2" style="cursor: pointer;" @click="showFullscreenImage = false"></i>
+                    </div>
+                    <img :src="selectedPlant.imageUrl" class="fullscreen-image">
+                </div>
+            </template>
+
             <div v-else-if="currentTab === 'map'" class="text-center mt-5"><p>Mapa</p></div>
             <div v-else-if="currentTab === 'profile'" class="text-center mt-5"><p>Profil</p></div>
 
             <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
             <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
+            <input type="file" accept="image/*" ref="changeImageInput" class="d-none" @change="handleChangePlantImage">
 
         </div>
 
@@ -284,8 +362,8 @@
         GoogleAuthProvider,
         signInWithPopup,
         sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCtTi9B_JUl8hv7sYJUsoVH1u3Lw63gvGk",
@@ -310,8 +388,8 @@
         signInWithPopup,
         sendPasswordResetEmail
     };
-    window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs };
-    window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL };
+    window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc };
+    window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL, deleteObject };
 </script>
 
 <!-- Vue -->
@@ -344,6 +422,13 @@
                 lastWateringDate: '',
                 wateringFrequency: '',
                 isSaving: false,
+
+                // ekran informacji o roślinie
+                selectedPlant: null,
+                editInfoModal: false,
+                tempUsefulInfo: '',
+                imageOptionsModal: false,
+                showFullscreenImage: false,
 
                 // dodane rośliny
                 housePlants: [
@@ -392,6 +477,11 @@
             }
         },
         methods: {
+            formatDatePl(dateStr) {
+                if (!dateStr) return '';
+                const [y, m, d] = dateStr.split('-');
+                return `${d}/${m}/${y}`;
+            },
             goBack() {
                 if (this.currentView === 'register' || this.currentView === 'reset') {
                     this.currentView = 'login';
@@ -402,6 +492,10 @@
                 }
                 else if (this.currentView === 'dashboard' && this.currentTab === 'add-details') {
                     this.currentTab = 'add';
+                }
+                else if (this.currentView === 'dashboard' && this.currentTab === 'plant-details') {
+                    this.selectedPlant = null;
+                    this.currentTab = 'home';
                 }
             },
             async checkUserProfile(user) {
@@ -519,12 +613,23 @@
                     querySnapshot.forEach((doc) => {
                         const plantData = doc.data();
 
+                        let createdStr = "Brak";
+                        if (plantData.createdAt) {
+                            const d = plantData.createdAt.toDate();
+                            createdStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                        }
+
                         if (plantData.type === 'domowa') {
                             this.housePlants.push({
                                 id: doc.id,
                                 name: plantData.name,
                                 subtitle: this.getPlantSubtitle(plantData.lastWateringDate, plantData.wateringFrequency),
-                                imageUrl: plantData.imageUrl
+                                imageUrl: plantData.imageUrl,
+                                createdAtStr: createdStr,
+                                repottingDate: plantData.repottingDate,
+                                lastWateringDate: plantData.lastWateringDate,
+                                wateringFrequency: plantData.wateringFrequency,
+                                usefulInfo: plantData.usefulInfo || ''
                             });
                         }
                         else if (plantData.type === 'dzika') {
@@ -608,6 +713,108 @@
                     this.isSaving = false;
                     console.error("Błąd zapisu rośliny: ", error);
                     alert("Wystąpił błąd podczas zapisywania rośliny");
+                }
+            },
+            openPlantDetails(plant) {
+                this.selectedPlant = plant;
+                this.currentTab = 'plant-details';
+            },
+            openEditInfoModal() {
+                this.tempUsefulInfo = this.selectedPlant.usefulInfo;
+                this.editInfoModal = true;
+            },
+            async saveUsefulInfo() {
+                try {
+                    const uid = window.firebaseAuth.currentUser.uid;
+                    const plantRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id);
+
+                    await window.firebaseDbMethods.updateDoc(plantRef, {
+                        usefulInfo: this.tempUsefulInfo
+                    });
+
+                    this.selectedPlant.usefulInfo = this.tempUsefulInfo;
+                    this.editInfoModal = false;
+                } catch (error) {
+                    console.log("Błąd zapisu informacji: ", error);
+                    alert("Błąd zapisu informacji.");
+                }
+            },
+            async waterPlant() {
+                try {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const uid = window.firebaseAuth.currentUser.uid;
+                    const plantRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id);
+
+                    await window.firebaseDbMethods.updateDoc(plantRef, {
+                        lastWateringDate: todayStr
+                    });
+
+                    this.selectedPlant.lastWateringDate = todayStr;
+                    this.selectedPlant.subtitle = this.getPlantSubtitle(todayStr, this.selectedPlant.wateringFrequency);
+                    alert("Podlano roślinę");
+                } catch (error) {
+                    alert("Coś poszło nie tak");
+                }
+            },
+            async deletePlant() {
+                if(confirm("Czy na pewno chcesz usunąć tę roślinę?")) {
+                    try {
+                        const uid = window.firebaseAuth.currentUser.uid;
+
+                        if (this.selectedPlant.imageUrl) {
+                            try {
+                                const imageRef = window.firebaseStorageMethods.ref(window.firebaseStorage, this.selectedPlant.imageUrl);
+                                await window.firebaseStorageMethods.deleteObject(imageRef);
+                            } catch (error) {
+                                console.warn("Nie udało się usunąć zdjęcia: ", error);
+                            }
+                        }
+
+                        const plantRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id);
+                        await window.firebaseDbMethods.deleteDoc(plantRef);
+
+                        this.housePlants = this.housePlants.filter(p => p.id !== this.selectedPlant.id);
+                        this.goBack();
+                    } catch (error) {
+                        console.error(error);
+                        alert("Wystąpił błąd podczas usuwania");
+                    }
+                }
+            },
+            triggerChangeImage() {
+                this.imageOptionsModal = false;
+                this.$refs.changeImageInput.click();
+            },
+            async handleChangePlantImage(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                try {
+                    const uid = window.firebaseAuth.currentUser.uid;
+                    alert("Zmiana zdjęcia w toku");
+
+                    const fileName = Date.now() + '_' + file.name;
+                    const storageRef = window.firebaseStorageMethods.ref(window.firebaseStorage, `plants/${uid}/${fileName}`);
+                    await window.firebaseStorageMethods.uploadBytes(storageRef, file);
+                    const newDownloadUrl = await window.firebaseStorageMethods.getDownloadURL(storageRef);
+
+                    if (this.selectedPlant.imageUrl) {
+                        try {
+                            const oldImageRef = window.firebaseStorageMethods.ref(window.firebaseStorage, this.selectedPlant.imageUrl);
+                            await window.firebaseStorageMethods.deleteObject(oldImageRef);
+                        } catch (error) { }
+                    }
+
+                    const plantRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id);
+                    await window.firebaseDbMethods.updateDoc(plantRef, {
+                        imageUrl: newDownloadUrl
+                    });
+
+                    this.selectedPlant.imageUrl = newDownloadUrl;
+                    alert("Zdjęcie zostało zaktualizowane");
+                } catch (error) {
+                    console.error(error);
+                    alert("Wystąpił błąd podczas zmiany zdjęcia");
                 }
             }
         }
