@@ -169,7 +169,7 @@
             <div style="font-size: 3.0rem; font-weight: 600; color: black; line-height: 0.75;">{{ activeUserName }}</div>
         </div>
 
-        <div class="dashboard-container shadow-lg">
+        <div class="dashboard-container shadow-lg" :style="currentTab === 'map' ? 'padding: 0; overflow: hidden; display: flex; flex-direction: column;' : ''">
 
             <div v-if="currentTab === 'home'">
                 <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
@@ -388,7 +388,12 @@
                 </div>
             </template>
 
-            <div v-else-if="currentTab === 'map'" class="text-center mt-5"><p>Mapa</p></div>
+            <div v-else-if="currentTab === 'map'" class="w-100 flex-grow-1 position-relative" style="min-height: 60vh;">
+                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000;" @click="currentTab = 'home'">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div id="mainMap" class="w-100 h-100" style="z-index: 1;"></div>
+            </div>
             <div v-else-if="currentTab === 'profile'" class="text-center mt-5"><p>Profil</p></div>
 
             <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
@@ -476,6 +481,12 @@
                 wateringFrequency: '',
                 isSaving: false,
 
+                // dodane rośliny
+                housePlants: [
+                ],
+                wildPlants: [
+                ],
+
                 // ekran informacji o roślinie
                 selectedPlant: null,
                 editInfoModal: false,
@@ -488,12 +499,16 @@
                 wildLng: null,
                 wildLocationString: "Szukam lokalizacji...",
                 mapInstance: null,
-
-                // dodane rośliny
-                housePlants: [
-                ],
-                wildPlants: [
-                ]
+                mainMapInstance: null
+            }
+        },
+        watch: {
+            currentTab(newVal) {
+                if (newVal === 'map') {
+                    this.$nextTick(() => {
+                        this.initMainMap();
+                    });
+                }
             }
         },
         computed: {
@@ -950,6 +965,65 @@
             },
 
 
+            initMainMap() {
+                if (this.mainMapInstance !== null) {
+                    this.mainMapInstance.remove();
+                    this.mainMapInstance = null;
+                }
+
+                let centerLat = 52.069;
+                let centerLng = 19.480;
+                let zoom = 6;
+
+                this.mainMapInstance = L.map('mainMap', { zoomControl: false }).setView([centerLat, centerLng], zoom);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OSM'
+                }).addTo(this.mainMapInstance);
+
+                const markers = [];
+
+                this.wildPlants.forEach(plant => {
+                    const customIcon = L.divIcon({
+                        className: 'custom-plant-marker',
+                        html: `<img src="${plant.imageUrl}" alt="${plant.name}">`,
+                        iconSize: [45, 45],
+                        iconAnchor: [20, 45],
+                        popupAnchor: [0, -46]
+                    });
+
+                    const marker = L.marker([plant.lat, plant.lng], { icon: customIcon }).addTo(this.mainMapInstance);
+                    markers.push(marker);
+
+                    const popupContent = document.createElement('div');
+                    popupContent.className = 'custom-popup-content';
+                    popupContent.innerHTML = `
+                        <div class="popup-info">
+                            <h5>${plant.name}</h5>
+                            <p><i class="bi bi-geo-alt"></i> ${plant.lat}, ${plant.lng}<br>${plant.location}</p>
+                            <p class="mt-1 text-muted" style="font-size: 0.75rem;">Dodano: ${plant.createdAtStr}</p>
+                        </div>
+                        <div class="popup-media">
+                            <img src="${plant.imageUrl}">
+                            <button class="btn btn-outline-dark btn-sm share-btn"><i class="bi bi-share"></i></button>
+                        </div>
+                    `;
+
+                    const shareBtn = popupContent.querySelector('.share-btn');
+                    shareBtn.addEventListener('click', () => {
+                        this.shareSpecificPlant(plant);
+                    });
+
+                    marker.bindPopup(popupContent);
+                });
+
+                if (markers.length > 0) {
+                    const group = new L.featureGroup(markers);
+                    this.mainMapInstance.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 15 });
+                }
+            },
+
+
             openExternalMap(lat, lng) {
                 const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
                 window.open(url, '_blank');
@@ -1041,26 +1115,27 @@
             },
 
 
-            async shareWildPlant() {
-                const lat = this.selectedPlant.lat;
-                const lng = this.selectedPlant.lng;
+            shareSpecificPlant(plant) {
+                const lat = plant.lat;
+                const lng = plant.lng;
                 const osmLink = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
                 const shareData = {
                     title: 'Moje znalezisko w GreenKeeper!',
-                    text: `Udostępniam Ci roślinę "${this.selectedPlant.name}".\nZobacz na mapie: `,
+                    text: `Udostępniam Ci roślinę "${plant.name}".\nZobacz na mapie: `,
                     url: osmLink
                 };
 
                 if (navigator.share) {
-                    try {
-                        await navigator.share(shareData);
-                    } catch (error) {
-                        console.log("Udostępnianie nie powiodło się: ", error);
-                    }
+                    navigator.share(shareData).catch(error => console.log("Udostepnianie przerwane: ", error));
                 } else {
-                    navigator.clipboard.writeText(shareData.text + shareData.url);
+                    navigator.clipboard.writeText(shareData.text);
                     alert("Skopiowano link do schowka");
                 }
+            },
+
+
+            async shareWildPlant() {
+                this.shareSpecificPlant(this.selectedPlant);
             },
 
 
