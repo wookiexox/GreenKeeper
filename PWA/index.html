@@ -198,25 +198,39 @@
                 </div>
             </div>
 
-            <div v-else-if="currentTab === 'add'" class="d-flex flex-column">
+            <div v-else-if="currentTab === 'add'" class="d-flex flex-column h-100">
                 <h6 class="fw-bold mb-3">Wybierz imię dla nowej rośliny:</h6>
-                <input type="text" class="form-control mb-4 py-2" v-model="newPlantName">
+                <input type="text" class="form-control mb-4 py-2 shadow-sm" v-model="newPlantName" placeholder="Np. Czosnek ozdobny">
 
                 <hr class="mb-4">
 
                 <h6 class="fw-bold mb-3">Wybierz typ rośliny:</h6>
                 <div class="d-flex gap-3">
                     <button class="btn-type-select flex-grow-1"
+                            :class="{'active': selectedPlantType === 'domowa'}"
                             :disabled="!isPlantNameValid"
                             @click="selectPlantType('domowa')">
                         Domowa
                     </button>
                     <button class="btn-type-select flex-grow-1"
+                            :class="{'active': selectedPlantType === 'dzika'}"
                             :disabled="!isPlantNameValid"
                             @click="selectPlantType('dzika')">
                         Dzika
                     </button>
                 </div>
+
+                <div v-if="selectedPlantType" class="mt-5 text-center">
+                    <p class="text-muted small fw-bold mb-3">Wybierz zdjęcie, aby przejść dalej</p>
+                    <button class="camera-btn shadow-sm" @click="openPhotoSelection">
+                        <i class="bi bi-camera"></i>
+                    </button>
+
+                    <img v-if="plantImageUrl" :src="plantImageUrl" class="mt-3 rounded shadow-sm" style="width: 100px; height: 100px; object-fit: cover;" alt="Roślina">
+                </div>
+
+                <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
+                <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
             </div>
 
             <div v-else-if="currentTab === 'map'" class="text-center mt-5">
@@ -294,6 +308,9 @@
 
                 // ekran dodania nowej rośliny
                 newPlantName: '',
+                selectedPlantType: null,
+                plantImageFile: null,
+                plantImageUrl: null,
 
                 // dodane rośliny
                 housePlants: [
@@ -338,6 +355,9 @@
                 }
                 else if (this.currentView === 'dashboard' && this.currentTab !== 'home') {
                     this.newPlantName = '';
+                    this.selectedPlantType = null;
+                    this.plantImageFile = null;
+                    this.plantImageUrl = null;
                     this.currentTab = 'home';
                 }
             },
@@ -429,7 +449,23 @@
             },
 
             selectPlantType(type) {
-                console.log("Typ " + type + " dla rośliny " + this.newPlantName);
+                this.selectedPlantType = type;
+            },
+            openPhotoSelection() {
+                if (this.selectedPlantType === 'dzika') {
+                    this.$refs.cameraInput.click();
+                } else {
+                    this.$refs.systemPickerInput.click();
+                }
+            },
+            handlePhotoUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.plantImageFile = file;
+                    this.plantImageUrl = URL.createObjectURL(file);
+
+                    alert("Zdjęcie załadowane przez natywny interfejs!");
+                }
             }
         }
     }).mount('#app')
