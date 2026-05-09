@@ -252,8 +252,10 @@
                 </div>
 
                 <button class="btn btn-dark w-100 py-3 mt-4"
-                        :disabled="!isAddPlantDetailsValid"
-                        @click="confirmAddPlant">Potwierdź</button>
+                        :disabled="!isAddPlantDetailsValid || isSaving"
+                        @click="confirmAddPlant">
+                    {{ isSaving ? 'Zapisywanie w chmurze...' : 'Potwierdź' }}
+                </button>
             </div>
 
             <div v-else-if="currentTab === 'map'" class="text-center mt-5"><p>Mapa</p></div>
@@ -282,7 +284,8 @@
         GoogleAuthProvider,
         signInWithPopup,
         sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCtTi9B_JUl8hv7sYJUsoVH1u3Lw63gvGk",
@@ -298,6 +301,7 @@
 
     window.firebaseAuth = getAuth(app);
     window.firebaseDb = getFirestore(app);
+    window.firebaseStorage = getStorage(app);
 
     window.firebaseAuthMethods = {
         createUserWithEmailAndPassword,
@@ -306,7 +310,8 @@
         signInWithPopup,
         sendPasswordResetEmail
     };
-    window.firebaseDbMethods = { doc, getDoc, setDoc };
+    window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs };
+    window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL };
 </script>
 
 <!-- Vue -->
@@ -335,9 +340,10 @@
                 selectedPlantType: null,
                 plantImageFile: null,
                 plantImageUrl: null,
-                repottingDate: null,
-                lastWateringDate: null,
-                wateringFrequency: null,
+                repottingDate: '',
+                lastWateringDate: '',
+                wateringFrequency: '',
+                isSaving: false,
 
                 // dodane rośliny
                 housePlants: [
@@ -375,7 +381,7 @@
                 return this.newPlantName.trim().length > 0;
             },
             isAddPlantDetailsValid() {
-                return this.repottingDate !== '' && this.lastWateringDate !== '' && this.wateringFrequency !== '';
+                return this.repottingDate && this.lastWateringDate && this.wateringFrequency;
             },
             currentDateFormatted() {
                 const today = new Date();
@@ -405,6 +411,7 @@
 
                     if (docSnap.exists()) {
                         this.activeUserName = docSnap.data().name;
+                        await this.fetchUserPlants(user.uid);
                         this.currentView = 'dashboard';
                     } else {
                         this.currentView = 'welcome';
@@ -484,7 +491,50 @@
                     console.error(error);
                 }
             },
+            getPlantSubtitle(lastDate, freq) {
+                if (!freq || freq === '0' || freq === 0) return "Brak powiadomień";
 
+                const lastWatered = new Date(lastDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                lastWatered.setHours(0, 0, 0, 0);
+
+                const nextWatering = new Date(lastWatered);
+                nextWatering.setDate(lastWatered.getDate() + parseInt(freq));
+
+                const diffTime = nextWatering.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 0) return `Podlej za ${diffDays} dni`;
+                if (diffDays === 0) return 'Podlej dzisiaj!';
+                return `Spóźnione o: ${Math.abs(diffDays)} dni`;
+            },
+            async fetchUserPlants(uid) {
+                try {
+                    const plantsRef = window.firebaseDbMethods.collection(window.firebaseDb, "users", uid, "plants");
+                    const querySnapshot = await window.firebaseDbMethods.getDocs(plantsRef);
+                    this.housePlants = [];
+                    this.wildPlants = [];
+
+                    querySnapshot.forEach((doc) => {
+                        const plantData = doc.data();
+
+                        if (plantData.type === 'domowa') {
+                            this.housePlants.push({
+                                id: doc.id,
+                                name: plantData.name,
+                                subtitle: this.getPlantSubtitle(plantData.lastWateringDate, plantData.wateringFrequency),
+                                imageUrl: plantData.imageUrl
+                            });
+                        }
+                        else if (plantData.type === 'dzika') {
+
+                        }
+                    });
+                }  catch (error) {
+                    console.error("Błąd podczas pobierania roślin z bazy: ", error)
+                }
+            },
             selectPlantType(type) {
                 this.selectedPlantType = type;
             },
@@ -513,43 +563,52 @@
                 this.selectedPlantType = null;
                 this.plantImageFile = null;
                 this.plantImageUrl = null;
-                this.repottingDate = null;
-                this.lastWateringDate = null;
+                this.repottingDate = '';
+                this.lastWateringDate = '';
                 this.wateringFrequency = '';
             },
-            confirmAddPlant() {
-                let subtitleText = 'Brak powiadomień';
+            async confirmAddPlant() {
+                this.isSaving = true;
 
-                if (this.wateringFrequency !== '0') {
-                    const lastWatered = new Date(this.lastWateringDate);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    lastWatered.setHours(0, 0, 0, 0);
+                try {
+                    const user = window.firebaseAuth.currentUser;
+                    if (!user) throw new Error("Brak zalogowanego użytkownika");
 
-                    const nextWatering = new Date(lastWatered);
-                    nextWatering.setDate(lastWatered.getDate() + parseInt(this.wateringFrequency));
+                    let downloadUrl = '';
+                    if (this.plantImageFile) {
+                        const fileName = Date.now() + '_' + this.plantImageFile.name;
+                        const storageRef = window.firebaseStorageMethods.ref(window.firebaseStorage, `plants/${user.uid}/${fileName}`);
 
-                    const diffTime = nextWatering.getTime() - today.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (diffDays > 0) {
-                        subtitleText = `Podlej za ${diffDays} dni`;
+                        await window.firebaseStorageMethods.uploadBytes(storageRef, this.plantImageFile);
+                        downloadUrl = await window.firebaseStorageMethods.getDownloadURL(storageRef);
                     }
-                    else if (diffDays === 0) {
-                        subtitleText = 'Podlej dzisiaj!';
-                    } else {
-                        subtitleText = `Spóźnione o: ${Math.abs(diffDays)} dni`;
-                    }
+
+                    const plantsCollectionRef = window.firebaseDbMethods.collection(window.firebaseDb, "users", user.uid, "plants");
+                    const newPlantData = {
+                        name: this.newPlantName,
+                        type: this.selectedPlantType,
+                        imageUrl: downloadUrl,
+                        repottingDate: this.repottingDate,
+                        lastWateringDate: this.lastWateringDate,
+                        wateringFrequency: parseInt(this.wateringFrequency),
+                        createdAt: new Date()
+                    };
+                    await window.firebaseDbMethods.addDoc(plantsCollectionRef, newPlantData);
+
+                    this.housePlants.push({
+                        name: this.newPlantName,
+                        subtitle: this.getPlantSubtitle(this.lastWateringDate, this.wateringFrequency),
+                        imageUrl: downloadUrl
+                    });
+
+                    this.isSaving = false;
+                    this.resetAddPlantForm();
+                    this.currentTab = 'home';
+                } catch (error) {
+                    this.isSaving = false;
+                    console.error("Błąd zapisu rośliny: ", error);
+                    alert("Wystąpił błąd podczas zapisywania rośliny");
                 }
-
-                this.housePlants.push({
-                    name: this.newPlantName,
-                    subtitle: subtitleText,
-                    imageUrl: this.plantImageUrl
-                });
-
-                this.resetAddPlantForm();
-                this.currentTab = 'home';
             }
         }
     }).mount('#app')
