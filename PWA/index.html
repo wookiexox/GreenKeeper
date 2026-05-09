@@ -170,11 +170,9 @@
 
             <div v-if="currentTab === 'home'">
                 <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
-
                 <div v-if="housePlants.length === 0" class="empty-state border-bottom mb-4">
                     Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
                 </div>
-
                 <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
                     <div class="plant-card" v-for="(plant, index) in housePlants" :key="'house-'+index">
                         <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
@@ -184,11 +182,9 @@
                 </div>
 
                 <h5 class="fw-bold mb-3 mt-5 border-bottom pb-2">Twoje dzikie rośliny</h5>
-
                 <div v-if="wildPlants.length === 0" class="empty-state">
                     Trochę tu pusto...
                 </div>
-
                 <div v-else class="horizontal-scroll pb-2">
                     <div class="plant-card" v-for="(plant, index) in wildPlants" :key="'wild-'+index">
                         <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
@@ -198,26 +194,20 @@
                 </div>
             </div>
 
-            <div v-else-if="currentTab === 'add'" class="d-flex flex-column h-100">
+            <div v-else-if="currentTab === 'add'" class="d-flex flex-column">
                 <h6 class="fw-bold mb-3">Wybierz imię dla nowej rośliny:</h6>
                 <input type="text" class="form-control mb-4 py-2 shadow-sm" v-model="newPlantName" placeholder="Np. Czosnek ozdobny">
-
                 <hr class="mb-4">
-
                 <h6 class="fw-bold mb-3">Wybierz typ rośliny:</h6>
                 <div class="d-flex gap-3">
                     <button class="btn-type-select flex-grow-1"
                             :class="{'active': selectedPlantType === 'domowa'}"
                             :disabled="!isPlantNameValid"
-                            @click="selectPlantType('domowa')">
-                        Domowa
-                    </button>
+                            @click="selectPlantType('domowa')">Domowa</button>
                     <button class="btn-type-select flex-grow-1"
                             :class="{'active': selectedPlantType === 'dzika'}"
                             :disabled="!isPlantNameValid"
-                            @click="selectPlantType('dzika')">
-                        Dzika
-                    </button>
+                            @click="selectPlantType('dzika')">Dzika</button>
                 </div>
 
                 <div v-if="selectedPlantType" class="mt-5 text-center">
@@ -225,18 +215,52 @@
                     <button class="camera-btn shadow-sm" @click="openPhotoSelection">
                         <i class="bi bi-camera"></i>
                     </button>
+                </div>
+            </div>
 
-                    <img v-if="plantImageUrl" :src="plantImageUrl" class="mt-3 rounded shadow-sm" style="width: 100px; height: 100px; object-fit: cover;" alt="Roślina">
+            <div v-else-if="currentTab === 'add-details'" class="d-flex flex-column h-100">
+
+                <div class="d-flex align-items-center mb-1">
+                    <img :src="plantImageUrl" class="rounded shadow-sm me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                    <div>
+                        <div class="small text-muted fw-bold">Typ: <span class="text-dark">Domowa</span></div>
+                        <div class="small text-muted fw-bold">Nazwa: <span class="text-dark">{{ newPlantName }}</span></div>
+                        <div class="small text-muted fw-bold">Data dodania: <span class="text-dark">{{ currentDateFormatted }}</span></div>
+                    </div>
+                </div>
+                <a href="#" class="text-primary small mb-4 fw-bold text-decoration-none" style="font-size: 0.8rem;" @click.prevent="openPhotoSelection">Wybierz inne zdjęcie</a>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Data przesadzenia:</label>
+                    <input type="date" class="form-control py-2 shadow-sm" v-model="repottingDate">
                 </div>
 
-                <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
-                <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Data ostatniego podlania:</label>
+                    <input type="date" class="form-control py-2 shadow-sm" v-model="lastWateringDate">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold small">Powiadomienia o podlaniu:</label>
+                    <select class="form-select py-2 shadow-sm" v-model="wateringFrequency">
+                        <option value="" disabled selected>Częstotliwość:</option>
+                        <option value="0">Brak</option>
+                        <option value="3">Co 3 dni</option>
+                        <option value="5">Co 5 dni</option>
+                        <option value="7">Co 7 dni</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-dark w-100 py-3 mt-4"
+                        :disabled="!isAddPlantDetailsValid"
+                        @click="confirmAddPlant">Potwierdź</button>
             </div>
 
-            <div v-else-if="currentTab === 'map'" class="text-center mt-5">
-            </div>
-            <div v-else-if="currentTab === 'profile'" class="text-center mt-5">
-            </div>
+            <div v-else-if="currentTab === 'map'" class="text-center mt-5"><p>Mapa</p></div>
+            <div v-else-if="currentTab === 'profile'" class="text-center mt-5"><p>Profil</p></div>
+
+            <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
+            <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
 
         </div>
 
@@ -311,6 +335,9 @@
                 selectedPlantType: null,
                 plantImageFile: null,
                 plantImageUrl: null,
+                repottingDate: null,
+                lastWateringDate: null,
+                wateringFrequency: null,
 
                 // dodane rośliny
                 housePlants: [
@@ -346,6 +373,16 @@
             },
             isPlantNameValid() {
                 return this.newPlantName.trim().length > 0;
+            },
+            isAddPlantDetailsValid() {
+                return this.repottingDate !== '' && this.lastWateringDate !== '' && this.wateringFrequency !== '';
+            },
+            currentDateFormatted() {
+                const today = new Date();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const yyyy = today.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
             }
         },
         methods: {
@@ -354,11 +391,11 @@
                     this.currentView = 'login';
                 }
                 else if (this.currentView === 'dashboard' && this.currentTab !== 'home') {
-                    this.newPlantName = '';
-                    this.selectedPlantType = null;
-                    this.plantImageFile = null;
-                    this.plantImageUrl = null;
+                    this.resetAddPlantForm();
                     this.currentTab = 'home';
+                }
+                else if (this.currentView === 'dashboard' && this.currentTab === 'add-details') {
+                    this.currentTab = 'add';
                 }
             },
             async checkUserProfile(user) {
@@ -464,8 +501,55 @@
                     this.plantImageFile = file;
                     this.plantImageUrl = URL.createObjectURL(file);
 
-                    alert("Zdjęcie załadowane przez natywny interfejs!");
+                    if(this.selectedPlantType === 'domowa') {
+                        this.currentTab = 'add-details';
+                    } else {
+                        alert("Zdjęcie dzikiej rośliny zapisane");
+                    }
                 }
+            },
+            resetAddPlantForm() {
+                this.newPlantName = '';
+                this.selectedPlantType = null;
+                this.plantImageFile = null;
+                this.plantImageUrl = null;
+                this.repottingDate = null;
+                this.lastWateringDate = null;
+                this.wateringFrequency = '';
+            },
+            confirmAddPlant() {
+                let subtitleText = 'Brak powiadomień';
+
+                if (this.wateringFrequency !== '0') {
+                    const lastWatered = new Date(this.lastWateringDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    lastWatered.setHours(0, 0, 0, 0);
+
+                    const nextWatering = new Date(lastWatered);
+                    nextWatering.setDate(lastWatered.getDate() + parseInt(this.wateringFrequency));
+
+                    const diffTime = nextWatering.getTime() - today.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays > 0) {
+                        subtitleText = `Podlej za ${diffDays} dni`;
+                    }
+                    else if (diffDays === 0) {
+                        subtitleText = 'Podlej dzisiaj!';
+                    } else {
+                        subtitleText = `Spóźnione o: ${Math.abs(diffDays)} dni`;
+                    }
+                }
+
+                this.housePlants.push({
+                    name: this.newPlantName,
+                    subtitle: subtitleText,
+                    imageUrl: this.plantImageUrl
+                });
+
+                this.resetAddPlantForm();
+                this.currentTab = 'home';
             }
         }
     }).mount('#app')
