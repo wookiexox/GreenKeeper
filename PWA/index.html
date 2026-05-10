@@ -864,6 +864,7 @@
                     this.currentView = 'login';
                     this.currentTab = 'home';
                     this.activeUserName = '';
+                    this.currentUserEmail = '';
                     this.housePlants = [];
                     this.wildPlants = [];
                     this.photoSourceModal = false;
@@ -969,6 +970,7 @@
                         });
 
                         this.activeUserName = this.userName;
+                        this.currentUserEmail = user.email;
                         this.userName = '';
                         this.currentView = 'dashboard';
                     }
