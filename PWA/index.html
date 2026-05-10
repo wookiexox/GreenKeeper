@@ -33,6 +33,11 @@
         <p class="app-subtitle">Keep your plants alive</p>
     </template>
 
+    <div v-if="currentView === 'loading'" class="w-100 d-flex flex-column justify-content-center align-items-center" style="min-height: 80vh;">
+        <div class="spinner-border text-dark mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+        <div class="fw-bold fs-5">Wczytywanie...</div>
+    </div>
+
     <!-- ekran logowania -->
     <div v-if="currentView === 'login'" class="w-100 d-flex flex-column align-items-center">
         <div class="login-card w-100" style="max-width: 400px;">
@@ -180,7 +185,7 @@
                     Trochę tu pusto... Dodaj swoją<br>pierwszą roślinę
                 </div>
                 <div v-else class="horizontal-scroll border-bottom mb-4 pb-4">
-                    <div class="plant-card" style="cursor: pointer;" v-for="(plant, index) in housePlants" :key="'house-'+index" @click="openPlantDetails(plant)">
+                    <div class="plant-card" style="cursor: pointer;" v-for="plant in sortedHousePlants" :key="'house-'+plant.id" @click="openPlantDetails(plant)">
                         <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
                         <p class="plant-title">{{ plant.name }}</p>
                         <p class="plant-subtitle">{{ plant.subtitle }}</p>
@@ -192,7 +197,7 @@
                     Trochę tu pusto...
                 </div>
                 <div v-else class="horizontal-scroll pb-2">
-                    <div class="plant-card" style="cursor: pointer;" v-for="(plant, index) in wildPlants" :key="'wild-'+index" @click="openWildPlantDetails(plant)">
+                    <div class="plant-card" style="cursor: pointer;" v-for="plant in sortedWildPlants" :key="'wild-'+plant.id" @click="openWildPlantDetails(plant)">
                         <img :src="plant.imageUrl" class="plant-img shadow-sm" alt="Zdjęcie rośliny">
                         <p class="plant-title">{{ plant.name }}</p>
                         <p class="plant-subtitle">{{ plant.location }}</p>
@@ -392,9 +397,9 @@
             </template>
 
             <div v-else-if="currentTab === 'map'" class="w-100 flex-grow-1 position-relative" style="min-height: 60vh;">
-<!--                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000; border: 1px solid black;" @click="currentTab = 'home'">-->
-<!--                    <i class="bi bi-arrow-left"></i>-->
-<!--                </button>-->
+                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000; border: 1px solid black;" @click="currentTab = 'home'">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
                 <div id="mainMap" class="w-100 h-100" style="z-index: 1;"></div>
             </div>
             <div v-else-if="currentTab === 'profile'" class="d-flex flex-column align-items-center w-100 h-100">
@@ -525,7 +530,17 @@
         linkWithPopup,
         onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        collection,
+        addDoc,
+        getDocs,
+        updateDoc,
+        deleteDoc,
+        enableIndexedDbPersistence
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
     const firebaseConfig = {
@@ -542,6 +557,9 @@
 
     window.firebaseAuth = getAuth(app);
     window.firebaseDb = getFirestore(app);
+    enableIndexedDbPersistence(window.firebaseDb).catch((error) => {
+        console.error("Nie udało się zainicjować bazy danych w trybie offline: ", error);
+    });
     window.firebaseStorage = getStorage(app);
 
     window.firebaseAuthMethods = {
@@ -561,12 +579,12 @@
 </script>
 
 <!-- Vue -->
-<script>
+<script type="module">
     Vue.createApp({
         data() {
             return {
                 // logowanie
-                currentView: 'login',
+                currentView: 'loading',
                 email: '',
                 password: '',
 
@@ -626,6 +644,8 @@
             window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
                 if (user) {
                     await this.checkUserProfile(user);
+                } else {
+                    this.currentView = 'login';
                 }
             });
         },
@@ -694,6 +714,39 @@
             isProfilePasswordMatching() {
                 return this.isProfilePasswordValid && (this.newProfilePassword === this.confirmProfilePassword) && this.newProfilePassword !== '';
             },
+            sortedHousePlants() {
+                return [...this.housePlants].sort((a, b) => {
+                    const getDays = (plant) => {
+                        if (!plant.wateringFrequency || plant.wateringFrequency === '0' || plant.wateringFrequency === 0) {
+                            return 9999;
+                        }
+
+                        const lastWatered = new Date(plant.lastWateringDate);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        lastWatered.setHours(0, 0, 0, 0);
+
+                        const nextWatering = new Date(lastWatered);
+                        nextWatering.setDate(lastWatered.getDate() + parseInt(plant.wateringFrequency));
+
+                        return Math.ceil((nextWatering.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                    };
+
+                    return getDays(a) - getDays(b);
+                });
+            },
+
+            sortedWildPlants() {
+                return [...this.wildPlants].sort((a, b) => {
+                    const parseDate = (str) => {
+                        if (!str || str === 'Brak') return 0;
+                        const [d, m, y] = str.split('/');
+                        return new Date(y, m - 1, d).getTime();
+                    };
+
+                    return parseDate(b.createdAtStr) - parseDate(a.createdAtStr);
+                });
+            }
         },
         methods: {
             formatDatePl(dateStr) {
