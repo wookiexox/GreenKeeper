@@ -338,9 +338,14 @@
                     </div>
                 </div>
 
-                <button class="btn btn-dark w-100 py-3 mt-auto mb-4" @click="waterPlant">
-                    Podlano roślinę
-                </button>
+                <div class="mt-auto mb-4 d-flex gap-2 w-100">
+                    <button class="btn btn-dark w-100 py-3 fw-bold" @click="waterPlant">
+                        <i class="bi bi-droplet"></i> Podlano
+                    </button>
+                    <button class="btn btn-outline-dark w-100 py-3 fw-bold" @click="repotPlant">
+                        <i class="bi bi-flower3"></i> Przesadzono
+                    </button>
+                </div>
             </div>
 
             <div v-else-if="currentTab === 'add-wild-details'" class="d-flex flex-column">
@@ -1319,6 +1324,45 @@
                 } catch (error) {
                     alert("Coś poszło nie tak");
                     console.error("Błąd podczas podlewania: ", error);
+                }
+            },
+
+
+            async repotPlant() {
+                try {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const uid = window.firebaseAuth.currentUser.uid;
+                    const plantRef = window.firebaseDbMethods.doc(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id);
+
+                    await window.firebaseDbMethods.updateDoc(plantRef, {
+                        repottingDate: todayStr
+                    });
+
+                    const historyRef = window.firebaseDbMethods.collection(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id, "history");
+                    const now = new Date();
+                    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const fullDateStr = `${this.formatDatePl(todayStr)} ${timeStr}`;
+                    const newRecord = {
+                        action: "Przesadzanie",
+                        dateStr: fullDateStr,
+                        timestamp: now.getTime()
+                    };
+                    const docRef = await window.firebaseDbMethods.addDoc(historyRef, newRecord);
+
+                    this.plantHistory.unshift({ id: docRef.id, ...newRecord });
+                    if (this.plantHistory.length > 6) {
+                        this.plantHistory.pop();
+                    }
+
+                    this.selectedPlant.repottingDate = todayStr;
+
+                    if (navigator.vibrate) {
+                        navigator.vibrate(100);
+                    }
+                    alert("Przesadzono roślinę");
+                } catch (error) {
+                    alert("Coś poszło nie tak");
+                    console.error("Błąd podczas przesadzania: ", error);
                 }
             },
 
