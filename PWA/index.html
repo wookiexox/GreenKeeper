@@ -173,6 +173,13 @@
                 <i class="bi bi-arrow-left"></i>
             </button>
 
+            <button v-if="currentTab === 'profile'"
+                    class="btn-logout position-absolute"
+                    style="right: 20px; top: 5px; z-index: 100; border: 1px solid black;"
+                    @click="logout">
+                <i class="bi bi-box-arrow-right text-danger" style="font-size: 1.5rem;"></i>
+            </button>
+
             <div style="font-size: 1.3rem; color: black;">Cześć,</div>
             <div style="font-size: 2.2rem; font-weight: 800; color: black; line-height: 1;">{{ activeUserName }}</div>
         </div>
@@ -528,7 +535,8 @@
         reauthenticateWithCredential,
         updatePassword,
         linkWithPopup,
-        onAuthStateChanged
+        onAuthStateChanged,
+        signOut
     } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore,
         doc,
@@ -572,7 +580,8 @@
         reauthenticateWithCredential,
         updatePassword,
         linkWithPopup,
-        onAuthStateChanged
+        onAuthStateChanged,
+        signOut
     };
     window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc };
     window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL, deleteObject };
@@ -790,12 +799,22 @@
                         this.activeUserName = docSnap.data().name;
                         this.currentUserEmail = user.email;
                         await this.fetchUserPlants(user.uid);
+                        this.photoSourceModal = false;
+                        this.showPasswordModal = false;
+                        this.imageOptionsModal = false;
                         this.currentView = 'dashboard';
                     } else {
                         this.currentView = 'welcome';
                     }
                 } catch (error) {
-                    console.error("Błąd podczas sprawdzania profilu.");
+                    console.error("Błąd podczas sprawdzania profilu:", error);
+
+                    this.currentUserEmail = user.email;
+                    this.activeUserName = "Offline";
+                    this.photoSourceModal = false;
+                    this.showPasswordModal = false;
+                    this.currentView = 'dashboard';
+                    this.currentTab = 'home';
                 }
             },
 
@@ -821,6 +840,23 @@
                 } catch (error) {
                     alert("Logowanie Google przerwane lub wystąpił błąd.");
                     console.error(error);
+                }
+            },
+
+
+            async logout() {
+                try {
+                    await window.firebaseAuthMethods.signOut(window.firebaseAuth);
+                    this.currentView = 'login';
+                    this.currentTab = 'home';
+                    this.activeUserName = '';
+                    this.housePlants = [];
+                    this.wildPlants = [];
+                    this.photoSourceModal = false;
+                    this.showPasswordModal = false;
+                } catch (error) {
+                    console.error("Błąd wylogowania: ", error);
+                    alert("Nie udało się wylogować");
                 }
             },
 
