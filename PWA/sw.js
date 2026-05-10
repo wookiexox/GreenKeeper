@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greenkeeper-v15';
+const CACHE_NAME = 'greenkeeper-v16';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -25,7 +25,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
-    if (event.request.url.includes('firestore.googleapis.com' || event.request.url.includes('identitytoolkit.googleapis.com'))) return;
+    if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('identitytoolkit.googleapis.com')) return;
 
     event.respondWith(fetch(event.request).then(response => {
         if (response && (response.status === 200 || response.status === 0)) {
