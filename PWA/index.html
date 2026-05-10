@@ -159,20 +159,20 @@
 
     <!-- ekran główny aplikacji -->
     <div v-else-if="currentView === 'dashboard'" class="dashboard-wrapper">
-        <div class="w-100 position-relative text-center mt-5" style="margin-bottom: 60px" v-show="currentTab !== 'map'">
+        <div class="w-100 position-relative text-center" style="margin-top: 15px; margin-bottom: 15px;" v-if="currentTab !== 'map'">
 
             <button v-if="currentTab !== 'home'"
                     class="btn-back position-absolute"
-                    style="left: 20px; top: 0; z-index: 100; border: 1px solid black;"
+                    style="left: 20px; top: 5px; z-index: 100; border: 1px solid black;"
                     @click="goBack">
                 <i class="bi bi-arrow-left"></i>
             </button>
 
-            <div style="font-size: 1.8rem; color: black;">Cześć,</div>
-            <div style="font-size: 3.0rem; font-weight: 600; color: black; line-height: 0.75;">{{ activeUserName }}</div>
+            <div style="font-size: 1.3rem; color: black;">Cześć,</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: black; line-height: 1;">{{ activeUserName }}</div>
         </div>
 
-        <div class="dashboard-container shadow-lg" :style="currentTab === 'map' ? 'padding: 0; overflow: hidden; display: flex; flex-direction: column;' : ''">
+        <div class="dashboard-container shadow-lg" :style="currentTab === 'map' ? 'padding: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 0;' : ''">
 
             <div v-if="currentTab === 'home'">
                 <h5 class="fw-bold mb-3 border-bottom pb-2">Twoje domowe rośliny</h5>
@@ -392,9 +392,9 @@
             </template>
 
             <div v-else-if="currentTab === 'map'" class="w-100 flex-grow-1 position-relative" style="min-height: 60vh;">
-                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000; border: 1px solid black;" @click="currentTab = 'home'">
-                    <i class="bi bi-arrow-left"></i>
-                </button>
+<!--                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000; border: 1px solid black;" @click="currentTab = 'home'">-->
+<!--                    <i class="bi bi-arrow-left"></i>-->
+<!--                </button>-->
                 <div id="mainMap" class="w-100 h-100" style="z-index: 1;"></div>
             </div>
             <div v-else-if="currentTab === 'profile'" class="d-flex flex-column align-items-center w-100 h-100">
@@ -446,7 +446,7 @@
                                        placeholder="co najmniej 8 znaków">
 
                                 <div v-if="isProfilePasswordFocused || (newProfilePassword.length > 0 && !isProfilePasswordValid)"
-                                     class="p-2 mt-1 rounded bg-light border shadow position-absolute w-100" style="font-size: 0.8rem; z-index: 100;">
+                                     class="p-2 mt-2 mb-3 rounded bg-light border shadow-sm" style="font-size: 0.8rem;">
                                     <div :class="hasProfileMinLength ? 'text-success' : 'text-danger'">
                                         <i class="bi" :class="hasProfileMinLength ? 'bi-check' : 'bi-x'"></i> 8 znaków
                                     </div>
@@ -484,9 +484,14 @@
                 </div>
             </div>
 
-            <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
-            <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
-            <input type="file" accept="image/*" ref="changeImageInput" class="d-none" @change="handleChangePlantImage">
+            <div v-if="photoSourceModal" class="custom-modal-overlay" @click.self="photoSourceModal = false" style="z-index: 9999;">
+                <div class="action-sheet" @click.stop>
+                    <h6 class="fw-bold mb-3 text-center">Wybierz źródło zdjęcia</h6>
+                    <button class="btn w-100 py-3 fw-bold border-bottom" @click="chooseCamera">Aparat</button>
+                    <button class="btn w-100 py-3 fw-bold border-bottom" @click="chooseGallery">Galeria</button>
+                    <button class="btn w-100 py-3 fw-bold text-danger mt-2" @click="photoSourceModal = false">Anuluj</button>
+                </div>
+            </div>
 
         </div>
 
@@ -496,14 +501,20 @@
             <i class="bi bi-geo-alt" :class="{'active-tab': currentTab === 'map'}" @click="currentTab = 'map'"></i>
             <i class="bi bi-person" :class="{'active-tab': currentTab === 'profile'}" @click="currentTab = 'profile'"></i>
         </div>
+
     </div>
+
+        <input type="file" accept="image/*" capture="environment" ref="cameraInput" style="display: none;" @change="handlePhotoUpload">
+        <input type="file" accept="image/*" ref="systemPickerInput" style="display: none;" @change="handlePhotoUpload">
+        <input type="file" accept="image/*" ref="changeImageInput" style="display: none;" @change="handleChangePlantImage">
 
 </div>
 
 <!-- firebase -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword,
+    import { getAuth,
+        createUserWithEmailAndPassword,
         signInWithEmailAndPassword,
         GoogleAuthProvider,
         signInWithPopup,
@@ -511,7 +522,8 @@
         EmailAuthProvider,
         reauthenticateWithCredential,
         updatePassword,
-        linkWithPopup
+        linkWithPopup,
+        onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
@@ -541,7 +553,8 @@
         EmailAuthProvider,
         reauthenticateWithCredential,
         updatePassword,
-        linkWithPopup
+        linkWithPopup,
+        onAuthStateChanged
     };
     window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc };
     window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL, deleteObject };
@@ -577,6 +590,7 @@
                 lastWateringDate: '',
                 wateringFrequency: '',
                 isSaving: false,
+                photoSourceModal: false,
 
                 // dodane rośliny
                 housePlants: [
@@ -607,6 +621,13 @@
                 confirmProfilePassword: '',
                 isProfilePasswordFocused: false
             }
+        },
+        mounted() {
+            window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
+                if (user) {
+                    await this.checkUserProfile(user);
+                }
+            });
         },
         watch: {
             currentTab(newVal) {
@@ -927,11 +948,22 @@
             },
 
 
+            chooseCamera() {
+                this.photoSourceModal = false;
+                this.$refs.cameraInput.click();
+            },
+
+            chooseGallery() {
+                this.photoSourceModal = false;
+                this.$refs.systemPickerInput.click();
+            },
+
+
             openPhotoSelection() {
                 if (this.selectedPlantType === 'dzika') {
                     this.$refs.cameraInput.click();
                 } else {
-                    this.$refs.systemPickerInput.click();
+                    this.photoSourceModal = true;
                 }
             },
 
@@ -948,6 +980,7 @@
                         this.getLocationAndProceed();
                     }
                 }
+                event.target.value = '';
             },
 
 
@@ -1120,6 +1153,8 @@
                     console.error(error);
                     alert("Wystąpił błąd podczas zmiany zdjęcia");
                 }
+
+                event.target.value = '';
             },
 
 
@@ -1233,8 +1268,9 @@
                         this.wildLocationString = "Nieznana lokalizacja";
                     }
                 }, (error) => {
-                    alert("Musisz zezwolić na użycie lokalizacji, aby dodać dziką roślinę");
-                });
+                    console.warn(error);
+                    alert("Nie udało się pobrać lokalizacji.");
+                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
             },
 
 
@@ -1345,6 +1381,14 @@
             navigator.serviceWorker.register('./sw.js')
                 .then(reg => console.log('Service Worker załadowany'))
                 .catch(error => console.error("Błąd w załadowaniu Service Workera: ", error));
+
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    window.location.reload();
+                    refreshing = true;
+                }
+            });
         });
     }
 </script>
