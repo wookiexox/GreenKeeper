@@ -505,6 +505,18 @@
                 </div>
             </div>
 
+            <div v-if="showWebcamModal" class="custom-modal-overlay" style="z-index: 9999; flex-direction: column;">
+                <div class="bg-dark p-2 rounded shadow text-center position-relative" style="width: 100%; max-width: 600px;">
+                    <video ref="webcamVideo" autoplay playsinline class="w-100 rounded bg-black" style="max-height: 60vh; object-fit: cover;"></video>
+                    <div class="d-flex justify-content-center gap-3 mt-3 mb-2">
+                        <button class="btn btn-danger px-4 fw-bold" @click="closeWebcam">Anuluj</button>
+                        <button class="btn btn-success px-4 fw-bold" @click="takeWebcamPhoto">
+                            <i class="bi bi-camera"></i> Zrób zdjęcie
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <div class="bottom-nav">
@@ -618,6 +630,8 @@
                 wateringFrequency: '',
                 isSaving: false,
                 photoSourceModal: false,
+                showWebcamModal: false,
+                videoStream: null,
 
                 // dodane rośliny
                 housePlants: [
@@ -1039,7 +1053,12 @@
 
             chooseCamera() {
                 this.photoSourceModal = false;
-                this.$refs.cameraInput.click();
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                    this.$refs.cameraInput.click();
+                } else {
+                    this.openWebcamModal();
+                }
             },
 
             chooseGallery() {
@@ -1050,10 +1069,66 @@
 
             openPhotoSelection() {
                 if (this.selectedPlantType === 'dzika') {
-                    this.$refs.cameraInput.click();
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        this.$refs.cameraInput.click();
+                    } else {
+                        this.openWebcamModal();
+                    }
                 } else {
                     this.photoSourceModal = true;
                 }
+            },
+
+
+            async openWebcamModal() {
+                this.showWebcamModal = true;
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    this.$nextTick(() => {
+                        if (this.$refs.webcamVideo) {
+                            this.$refs.webcamVideo.srcObject = stream;
+                            this.videoStream = stream;
+                        }
+                    });
+                } catch (error) {
+                    alert("Brak dostępu do kamery");
+                    this.showWebcamModal = false;
+                    this.$refs.cameraInput.click();
+                }
+            },
+
+
+            closeWebcam() {
+                if (this.videoStream) {
+                    this.videoStream.getTracks().forEach(track => track.stop());
+                    this.videoStream = null;
+                }
+                this.showWebcamModal = false;
+            },
+
+
+            takeWebcamPhoto() {
+                const video = this.$refs.webcamVideo;
+                const canvas = document.createElement('canvas');
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], "webcam_photo.jpg", { type: "image/jpeg" });
+                    this.plantImageFile = file;
+                    this.plantImageUrl = URL.createObjectURL(file);
+
+                    this.closeWebcam();
+
+                    if (this.selectedPlantType === 'domowa') {
+                        this.currentTab = 'add-details';
+                    } else {
+                        this.getLocationAndProceed();
+                    }
+                }, 'image/png', 0.9);
             },
 
 
