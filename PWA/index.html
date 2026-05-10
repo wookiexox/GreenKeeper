@@ -236,7 +236,7 @@
                 </div>
             </div>
 
-            <div v-else-if="currentTab === 'add-details'" class="d-flex flex-column h-100">
+            <div v-else-if="currentTab === 'add-details'" class="d-flex flex-column">
 
                 <div class="d-flex align-items-center mb-1">
                     <img :src="plantImageUrl" class="rounded shadow-sm me-3" style="width: 80px; height: 80px; object-fit: cover;">
@@ -276,7 +276,7 @@
                 </button>
             </div>
 
-            <div v-else-if="currentTab === 'plant-details' && selectedPlant" class="d-flex flex-column h-100 position-relative">
+            <div v-else-if="currentTab === 'plant-details' && selectedPlant" class="d-flex flex-column position-relative">
 
                 <i class="bi bi-trash text-danger position-absolute" style="top: 0; right: 0; font-size: 1.3rem; cursor: pointer; z-index: 10;" @click="deletePlant"></i>
 
@@ -312,11 +312,29 @@
                         <i class="bi bi-chat-square-quote me-2 fs-5 text-muted"></i>
                         <span class="small text-muted fw-bold">Przydatne informacje</span>
                     </div>
+
                     <div v-if="selectedPlant.usefulInfo" class="fw-bold ms-4 ps-1 small mb-2">{{ selectedPlant.usefulInfo }}</div>
+
                     <div class="ms-4 ps-1">
                         <a href="#" class="text-primary small fw-bold text-decoration-none" @click.prevent="openEditInfoModal">
                             {{ selectedPlant.usefulInfo ? 'Edytuj' : 'Dodaj informacje' }}
                         </a>
+                    </div>
+
+                    <div class="mb-4 border-bottom pb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-clock-history me-2 fs-5 text-muted"></i>
+                            <span class="small text-muted fw-bold">Historia zabiegów</span>
+                        </div>
+                        <div class="ms-4 ps-1">
+                            <div v-if="plantHistory.length === 0" class="small text-muted">Brak wpisów w historii.</div>
+                            <ul v-else class="list-unstyled mb-0 small">
+                                <li v-for="record in plantHistory" :key="record.id" class="mb-1 text-dark">
+                                    <i class="bi bi-check2 text-success me-1"></i>
+                                    <span class="fw-bold">{{ record.action }}</span> <span class="text-muted">- {{ record.dateStr }}</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
@@ -325,7 +343,7 @@
                 </button>
             </div>
 
-            <div v-else-if="currentTab === 'add-wild-details'" class="d-flex flex-column h-100">
+            <div v-else-if="currentTab === 'add-wild-details'" class="d-flex flex-column">
                 <div class="d-flex align-items-center mb-1">
                     <img :src="plantImageUrl" class="rounded shadow-sm me-3" style="width: 80px; height: 80px; object-fit: cover;">
                     <div>
@@ -350,7 +368,7 @@
                 </button>
             </div>
 
-            <div v-else-if="currentTab === 'wild-plant-details' && selectedPlant" class="d-flex flex-column h-100 position-relative">
+            <div v-else-if="currentTab === 'wild-plant-details' && selectedPlant" class="d-flex flex-column position-relative">
 
                 <i class="bi bi-trash text-danger position-absolute" style="top: 0; right: 0; font-size: 1.3rem; cursor: pointer; z-index: 10;" @click="deleteWildPlant"></i>
 
@@ -409,7 +427,7 @@
                 </button>
                 <div id="mainMap" class="w-100 h-100" style="z-index: 1;"></div>
             </div>
-            <div v-else-if="currentTab === 'profile'" class="d-flex flex-column align-items-center w-100 h-100">
+            <div v-else-if="currentTab === 'profile'" class="d-flex flex-column align-items-center w-100">
 
                 <div class="d-flex flex-column align-items-center mb-4 mt-3">
                     <div class="rounded-circle bg-light d-flex justify-content-center align-items-center shadow-sm mb-3 border" style="width: 90px; height: 90px;">
@@ -645,6 +663,7 @@
                 tempUsefulInfo: '',
                 imageOptionsModal: false,
                 showFullscreenImage: false,
+                plantHistory: [],
 
                 // mapa
                 wildLat: null,
@@ -1212,9 +1231,31 @@
             },
 
 
-            openPlantDetails(plant) {
+            async openPlantDetails(plant) {
                 this.selectedPlant = plant;
                 this.currentTab = 'plant-details';
+                this.plantHistory = [];
+
+                try {
+                    const uid = window.firebaseAuth.currentUser.uid;
+                    const historyRef = window.firebaseDbMethods.collection(window.firebaseDb, "users", uid, "plants", plant.id, "history");
+                    const querySnapshot = await window.firebaseDbMethods.getDocs(historyRef);
+                    const historyTemp = [];
+
+                    querySnapshot.forEach(doc => {
+                        const data = doc.data();
+                        historyTemp.push({
+                            id: doc.id,
+                            action: data.action,
+                            dateStr: data.dateStr,
+                            timestamp: data.timestamp
+                        });
+                    });
+
+                    this.plantHistory = historyTemp.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
+                } catch (error) {
+                    console.error("Błąd pobierania historii pielęgnacji: ", error);
+                }
             },
 
 
@@ -1252,11 +1293,32 @@
                         lastWateringDate: todayStr
                     });
 
+                    const historyRef = window.firebaseDbMethods.collection(window.firebaseDb, "users", uid, "plants", this.selectedPlant.id, "history");
+                    const now = new Date();
+                    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const fullDateStr = `${this.formatDatePl(todayStr)} ${timeStr}`;
+                    const newRecord = {
+                        action: "Podlewanie",
+                        dateStr: fullDateStr,
+                        timestamp: now.getTime()
+                    };
+                    const docRef = await window.firebaseDbMethods.addDoc(historyRef, newRecord);
+
+                    this.plantHistory.unshift({ id: docRef.id, ...newRecord });
+                    if (this.plantHistory.length > 6) {
+                        this.plantHistory.pop();
+                    }
+
                     this.selectedPlant.lastWateringDate = todayStr;
                     this.selectedPlant.subtitle = this.getPlantSubtitle(todayStr, this.selectedPlant.wateringFrequency);
+
+                    if (navigator.vibrate) {
+                        navigator.vibrate(100);
+                    }
                     alert("Podlano roślinę");
                 } catch (error) {
                     alert("Coś poszło nie tak");
+                    console.error("Błąd podczas podlewania: ", error);
                 }
             },
 

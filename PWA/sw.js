@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greenkeeper-v20';
+const CACHE_NAME = 'greenkeeper-v23';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
