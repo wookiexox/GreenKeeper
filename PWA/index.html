@@ -1021,12 +1021,18 @@
                         wateringFrequency: parseInt(this.wateringFrequency),
                         createdAt: new Date()
                     };
-                    await window.firebaseDbMethods.addDoc(plantsCollectionRef, newPlantData);
+                    const docRef = await window.firebaseDbMethods.addDoc(plantsCollectionRef, newPlantData);
 
                     this.housePlants.push({
+                        id: docRef.id,
                         name: this.newPlantName,
                         subtitle: this.getPlantSubtitle(this.lastWateringDate, this.wateringFrequency),
-                        imageUrl: downloadUrl
+                        imageUrl: downloadUrl,
+                        createdAtStr: this.currentDateFormatted,
+                        repottingDate: this.repottingDate,
+                        lastWateringDate: this.lastWateringDate,
+                        wateringFrequency: this.wateringFrequency,
+                        usefulInfo: ''
                     });
 
                     this.isSaving = false;
