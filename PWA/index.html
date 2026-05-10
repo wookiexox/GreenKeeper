@@ -156,11 +156,11 @@
 
     <!-- ekran główny aplikacji -->
     <div v-else-if="currentView === 'dashboard'" class="dashboard-wrapper">
-        <div class="w-100 position-relative text-center mt-5" style="margin-bottom: 60px">
+        <div class="w-100 position-relative text-center mt-5" style="margin-bottom: 60px" v-show="currentTab !== 'map'">
 
             <button v-if="currentTab !== 'home'"
                     class="btn-back position-absolute"
-                    style="left: 20px; top: 0; z-index: 100;"
+                    style="left: 20px; top: 0; z-index: 100; border: 1px solid black;"
                     @click="goBack">
                 <i class="bi bi-arrow-left"></i>
             </button>
@@ -389,12 +389,97 @@
             </template>
 
             <div v-else-if="currentTab === 'map'" class="w-100 flex-grow-1 position-relative" style="min-height: 60vh;">
-                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000;" @click="currentTab = 'home'">
+                <button class="btn-back position-absolute shadow-sm" style="top: 20px; left: 20px; z-index: 1000; border: 1px solid black;" @click="currentTab = 'home'">
                     <i class="bi bi-arrow-left"></i>
                 </button>
                 <div id="mainMap" class="w-100 h-100" style="z-index: 1;"></div>
             </div>
-            <div v-else-if="currentTab === 'profile'" class="text-center mt-5"><p>Profil</p></div>
+            <div v-else-if="currentTab === 'profile'" class="d-flex flex-column align-items-center w-100 h-100">
+
+                <div class="d-flex flex-column align-items-center mb-4 mt-3">
+                    <div class="rounded-circle bg-light d-flex justify-content-center align-items-center shadow-sm mb-3 border" style="width: 90px; height: 90px;">
+                        <i class="bi bi-flower1" style="font-size: 3.5rem; color: red;"></i>
+                    </div>
+                    <h2 class="fw-bold">{{ activeUserName }}</h2>
+                </div>
+
+                <div class="w-100 mb-3">
+                    <input type="text" class="form-control text-muted bg-light border-0 shadow-sm py-2" :value="currentUserEmail" readonly>
+                </div>
+
+                <button class="btn btn-light border w-100 py-2 mb-3 fw-bold shadow-sm" @click="showPasswordModal = true">
+                    Zresetuj hasło
+                </button>
+
+                <button class="btn btn-light border w-100 py-2 mb-4 d-flex justify-content-center align-items-center gap-2 fw-bold shadow-sm" @click="linkGoogleAccount">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;">
+                    Połącz z Google
+                </button>
+
+                <div class="w-100 mt-2 border-top pt-4">
+                    <h5 class="fw-bold text-secondary mb-3">Rośliny domowe: <span class="text-dark">{{ housePlants.length }}</span></h5>
+                    <h5 class="fw-bold text-secondary">Rośliny dzikie: <span class="text-dark">{{ wildPlants.length }}</span></h5>
+                </div>
+
+                <div v-if="showPasswordModal" class="custom-modal-overlay" @click.self="closePasswordModal">
+                    <div class="custom-modal position-relative">
+                        <i class="bi bi-x-lg position-absolute" style="top: 15px; right: 15px; cursor: pointer; z-index: 10;" @click="closePasswordModal"></i>
+
+                        <div v-if="!showPasswordSuccess">
+                            <h6 class="fw-bold mb-4 mt-2">Zmiana hasła</h6>
+
+                            <div class="mb-3">
+                                <label class="small fw-bold text-muted mb-1">Aktualne hasło</label>
+                                <input type="password" class="form-control shadow-sm" v-model="oldPassword" placeholder="aktualne hasło">
+                            </div>
+
+                            <div class="mb-3 position-relative">
+                                <label class="small fw-bold text-muted mb-1">Nowe hasło</label>
+                                <input type="password" class="form-control shadow-sm"
+                                       :class="{'is-valid': isProfilePasswordValid, 'is-invalid': newProfilePassword.length > 0 && !isProfilePasswordValid}"
+                                       v-model="newProfilePassword"
+                                       @focus="isProfilePasswordFocused = true"
+                                       @blur="isProfilePasswordFocused = false"
+                                       placeholder="co najmniej 8 znaków">
+
+                                <div v-if="isProfilePasswordFocused || (newProfilePassword.length > 0 && !isProfilePasswordValid)"
+                                     class="p-2 mt-1 rounded bg-light border shadow position-absolute w-100" style="font-size: 0.8rem; z-index: 100;">
+                                    <div :class="hasProfileMinLength ? 'text-success' : 'text-danger'">
+                                        <i class="bi" :class="hasProfileMinLength ? 'bi-check' : 'bi-x'"></i> 8 znaków
+                                    </div>
+                                    <div :class="hasProfileUpperCase ? 'text-success' : 'text-danger'">
+                                        <i class="bi" :class="hasProfileUpperCase ? 'bi-check' : 'bi-x'"></i> 1 wielka litera
+                                    </div>
+                                    <div :class="hasProfileNumber ? 'text-success' : 'text-danger'">
+                                        <i class="bi" :class="hasProfileNumber ? 'bi-check' : 'bi-x'"></i> 1 cyfra
+                                    </div>
+                                    <div :class="hasProfileSpecialChar ? 'text-success' : 'text-danger'">
+                                        <i class="bi" :class="hasProfileSpecialChar ? 'bi-check' : 'bi-x'"></i> 1 znak specjalny
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="small fw-bold text-muted mb-1">Potwierdź nowe hasło</label>
+                                <input type="password" class="form-control shadow-sm"
+                                       :class="{'is-valid': isProfilePasswordMatching}"
+                                       v-model="confirmProfilePassword"
+                                       placeholder="hasła muszą się zgadzać">
+                            </div>
+
+                            <button class="btn btn-dark w-100 py-2 fw-bold shadow-sm"
+                                    :disabled="!isProfilePasswordMatching || oldPassword.length === 0"
+                                    @click="changeUserPassword">Zmień hasło</button>
+                        </div>
+
+                        <div v-else class="text-center py-4">
+                            <i class="bi bi-check-circle text-success mb-3" style="font-size: 3rem;"></i>
+                            <h6 class="fw-bold mb-4">Twoje hasło zostało zmienione.</h6>
+                            <button class="btn btn-dark w-100 py-2 fw-bold" @click="closePasswordModal">OK</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <input type="file" accept="image/*" capture="environment" ref="cameraInput" class="d-none" @change="handlePhotoUpload">
             <input type="file" accept="image/*" ref="systemPickerInput" class="d-none" @change="handlePhotoUpload">
@@ -419,7 +504,12 @@
         signInWithEmailAndPassword,
         GoogleAuthProvider,
         signInWithPopup,
-        sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+        sendPasswordResetEmail,
+        EmailAuthProvider,
+        reauthenticateWithCredential,
+        updatePassword,
+        linkWithPopup
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
@@ -444,7 +534,11 @@
         signInWithEmailAndPassword,
         GoogleAuthProvider,
         signInWithPopup,
-        sendPasswordResetEmail
+        sendPasswordResetEmail,
+        EmailAuthProvider,
+        reauthenticateWithCredential,
+        updatePassword,
+        linkWithPopup
     };
     window.firebaseDbMethods = { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc };
     window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL, deleteObject };
@@ -499,7 +593,16 @@
                 wildLng: null,
                 wildLocationString: "Szukam lokalizacji...",
                 mapInstance: null,
-                mainMapInstance: null
+                mainMapInstance: null,
+
+                // profil użytkownika
+                currentUserEmail: '',
+                showPasswordModal: false,
+                showPasswordSuccess: false,
+                oldPassword: '',
+                newProfilePassword: '',
+                confirmProfilePassword: '',
+                isProfilePasswordFocused: false
             }
         },
         watch: {
@@ -548,7 +651,25 @@
                 const dd = String(today.getDate()).padStart(2, '0');
                 const yyyy = today.getFullYear();
                 return `${dd}/${mm}/${yyyy}`;
-            }
+            },
+            hasProfileMinLength() {
+                return this.newProfilePassword.length >= 8;
+            },
+            hasProfileUpperCase() {
+                return /[A-Z]/.test(this.newProfilePassword);
+            },
+            hasProfileNumber() {
+                return /[0-9]/.test(this.newProfilePassword);
+            },
+            hasProfileSpecialChar() {
+                return /[!@#$%^&*]/.test(this.newProfilePassword);
+            },
+            isProfilePasswordValid() {
+                return this.hasProfileMinLength && this.hasProfileUpperCase && this.hasProfileNumber && this.hasProfileSpecialChar;
+            },
+            isProfilePasswordMatching() {
+                return this.isProfilePasswordValid && (this.newProfilePassword === this.confirmProfilePassword) && this.newProfilePassword !== '';
+            },
         },
         methods: {
             formatDatePl(dateStr) {
@@ -590,6 +711,7 @@
 
                     if (docSnap.exists()) {
                         this.activeUserName = docSnap.data().name;
+                        this.currentUserEmail = user.email;
                         await this.fetchUserPlants(user.uid);
                         this.currentView = 'dashboard';
                     } else {
@@ -626,6 +748,25 @@
             },
 
 
+            async linkGoogleAccount() {
+                try {
+                    const provider = new window.firebaseAuthMethods.GoogleAuthProvider();
+                    const user = window.firebaseAuth.currentUser;
+                    await window.firebaseAuthMethods.linkWithPopup(user, provider);
+                    alert("Konto zostało pomyślnie połączone z Google");
+                } catch (error) {
+                    if (error.code === 'auth/credential-already-in-use') {
+                        alert("To konto Google jest już powiązane z innym profilem");
+                    } else if (error.code === 'auth/provider-already-linked') {
+                        alert("Twój profil jest już powiązany z kontem Google");
+                    } else {
+                        alert("Wystąpił błąd podczas łączenia kont");
+                    }
+                    console.error("Błąd linkowania z Google: ", error);
+                }
+            },
+
+
             async resetPassword() {
                 try {
                     await window.firebaseAuthMethods.sendPasswordResetEmail(window.firebaseAuth, this.email);
@@ -635,6 +776,35 @@
                     alert("Błąd: Sprawdź, czy wpisałeś poprawny e-mail.");
                     console.error(error);
                 }
+            },
+
+
+            async changeUserPassword() {
+                try {
+                    const user = window.firebaseAuth.currentUser;
+                    const credential = window.firebaseAuthMethods.EmailAuthProvider.credential(user.email, this.oldPassword);
+
+                    await window.firebaseAuthMethods.reauthenticateWithCredential(user, credential);
+                    await window.firebaseAuthMethods.updatePassword(user, this.newProfilePassword);
+
+                    this.showPasswordSuccess = true;
+                } catch (error) {
+                    if (error.code === 'auth/invalid-credential') {
+                        alert("Podane aktualne hasło jest nieprawidłowe");
+                    } else {
+                        alert("Wystąpił błąd podczas zmiany hasła");
+                    }
+                    console.error("Błąd podczas zmiany hasła: ", error);
+                }
+            },
+
+
+            closePasswordModal() {
+                this.showPasswordModal = false;
+                this.showPasswordSuccess = false;
+                this.oldPassword = '';
+                this.newProfilePassword = '';
+                this.confirmProfilePassword = '';
             },
 
 
